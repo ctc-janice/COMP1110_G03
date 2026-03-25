@@ -1,0 +1,9 @@
+stop_id,stop_name,transport_type
+HK001,Central MTR,MTR
+HK002,Admiralty MTR,MTR
+HK003,Wan Chai MTR,MTR
+HK004,Causeway Bay MTR,MTR
+HK005,Tsim Sha Tsui MTR,MTR
+HK006,Jordan MTR,MTR
+HK007,Mong Kok MTR,MTR
+HK008,Central Bus Terminal,BUS
