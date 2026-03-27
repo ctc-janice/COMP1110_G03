@@ -7,8 +7,6 @@ WHAT THIS FILE DOES:
       2. Sorts them by the user's chosen preference
       3. Returns the top 3 results, formatted for display
 
-    Think of it as the judge — the router finds possible paths, and scorer ranks them.
-
 WHERE DO CANDIDATE PATHS COME FROM?
     This file does NOT find paths — that's the router's job (router.py, done by a teammate).
     The router gives scorer a list of paths. Each path is a list of segment dicts:
@@ -42,7 +40,7 @@ def evaluate_and_rank(candidate_paths, preference, stops=None):
     Args:
         candidate_paths (list): List of paths. Each path = list of segment dicts.
         preference      (str):  One of 'fastest', 'cheapest', 'fewest_segments'
-        stops           (dict): Optional -- used to look up stop names for display
+        stops           (dict): used to look up stop names for display
 
     Returns:
         List of up to 3 evaluated journey dicts, sorted by preference.
@@ -189,9 +187,9 @@ def format_journey(journey, stops=None):
     lines.append(f"\n{'─'*42}")
     lines.append(f"  #{rank}  Journey")
     lines.append(f"{'─'*42}")
-    lines.append(f"  🕐  Duration : {journey['duration']:.0f} mins")
-    lines.append(f"  💰  Cost     : HK${journey['cost']:.2f}")
-    lines.append(f"  🔢  Segments : {journey['segments_count']}")
+    lines.append(f"Duration : {journey['duration']:.0f} mins")
+    lines.append(f"Cost     : HK${journey['cost']:.2f}")
+    lines.append(f"Segments : {journey['segments_count']}")
     lines.append(f"{'─'*42}")
     lines.append(f"  Route:")
 
@@ -270,4 +268,4 @@ if __name__ == "__main__":
         results = evaluate_and_rank(candidates, preference=pref)
         print_results(results, preference=pref)
 
-    print("\n✓ If #1 changes between preferences above, the scorer is working correctly.")
+    print("\nIf #1 changes between preferences above, the scorer is working correctly.")

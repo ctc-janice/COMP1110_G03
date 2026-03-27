@@ -5,8 +5,6 @@ WHAT THIS FILE DOES:
     Before we do any routing, we need to make sure the user's inputs make sense.
     This file checks every piece of user input and returns clear error messages.
 
-    Think of it as a bouncer — nothing gets into the routing engine unless it passes here.
-
 WHAT WE VALIDATE:
     1. Stop IDs       — Does the stop actually exist in our network?
     2. Origin/Dest    — Are they different stops? (Can't travel to where you already are)
@@ -24,8 +22,7 @@ USAGE:
 """
 
 
-# Valid preference keywords — single source of truth
-# SUGGESTION: If you add more preference modes later (e.g., "balanced"), add them here.
+# Valid preference keywords : single source of truth
 VALID_PREFERENCES = {"fastest", "cheapest", "fewest_segments"}
 
 
@@ -42,7 +39,7 @@ def validate_stop(stop_input, stops):
         stops (dict):     The loaded stops dictionary from io_handler
 
     Returns:
-        (True, stop_id)       if valid   ← note: returns the canonical ID, not just True
+        (True, stop_id)       if valid   ← note: returns the ID, not just True
         (False, error_msg)    if invalid
 
     Example:
@@ -103,7 +100,7 @@ def validate_preference(preference_input):
         preference_input (str): Whatever the user typed
 
     Returns:
-        (True, preference)     if valid   ← returns the normalised lowercase string
+        (True, preference)     if valid   - returns the normalised lowercase string
         (False, error_msg)     if invalid
 
     Example:
@@ -129,7 +126,7 @@ def validate_preference(preference_input):
 
 def validate_journey_request(origin_input, destination_input, preference_input, stops):
     """
-    ★ MASTER VALIDATION — validates all three inputs in one call.
+    MASTER VALIDATION — validates all three inputs in one call.
 
     This is the function main.py should call before routing.
     It runs all checks in order and returns the first error encountered,
@@ -171,7 +168,7 @@ def validate_journey_request(origin_input, destination_input, preference_input, 
     ok, preference_result = validate_preference(preference_input)
     if not ok:
         return False, preference_result
-    # All good — return cleaned, normalised values
+    # All good
     return True, {
         "origin":      origin_result,
         "destination": destination_result,
@@ -217,7 +214,7 @@ if __name__ == "__main__":
 
     for desc, origin, dest, pref, expect_valid in test_cases:
         ok, result = validate_journey_request(origin, dest, pref, mock_stops)
-        status = "✓ PASS" if ok == expect_valid else "✗ FAIL"
+        status = "PASS" if ok == expect_valid else "FAIL"
         if ok == expect_valid:
             passed += 1
         else:
