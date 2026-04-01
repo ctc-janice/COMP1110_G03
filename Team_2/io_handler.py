@@ -44,7 +44,7 @@ def load_network(stops_filepath, segments_filepath):
     stops    = _load_stops(stops_filepath)
     segments = _load_segments(segments_filepath, stops)
 
-    print(f"[IO] ✓ Loaded {len(stops)} stops and {len(segments)} segments successfully.\n")
+    print(f"[IO] Loaded {len(stops)} stops and {len(segments)} segments successfully.\n")
     return stops, segments
 
 
@@ -80,7 +80,7 @@ def _load_stops(filepath):
 
             # Warn about duplicate stop IDs
             if stop_id in stops:
-                print(f"[IO] ⚠ Warning: Duplicate stop_id '{stop_id}' on line {line_number}. Skipping.")
+                print(f"[IO] Warning: Duplicate stop_id '{stop_id}' on line {line_number}. Skipping.")
                 continue
 
             stops[stop_id] = {
@@ -99,7 +99,7 @@ def _load_segments(filepath, stops):
     Expected CSV columns: segment_id, from_stop, to_stop, duration_mins, cost_hkd, transport_type
 
     NOTE: Segments are one-directional in the file.
-          We automatically add the reverse direction (B→A) for each row,
+          We automatically add the reverse direction (B to A) for each row,
           since most transit routes run both ways.
 
     Returns:
@@ -153,7 +153,7 @@ def _load_segments(filepath, stops):
 
             segments.append(segment)
 
-            # Auto-add reverse direction (B → A) with same cost/duration
+            # Auto-add reverse direction (B to A) with same cost/duration
             # SUGGESTION: If your routes are one-way (e.g., a one-way bus loop),
             # remove this block and mark segments as directional in the CSV if we decide to add the feature.
             reverse = segment.copy()
@@ -164,7 +164,7 @@ def _load_segments(filepath, stops):
 
     # Report all validation errors at once
     if errors:
-        print(f"[IO] ✗ Errors found in {filepath}:")
+        print(f"[IO] Errors found in {filepath}:")
         for e in errors:
             print(e)
         print("[IO] Fix the above errors and restart.\n")
@@ -181,29 +181,29 @@ def _load_segments(filepath, stops):
 def _check_file_exists(filepath):
     """Stop immediately if the file doesn't exist."""
     if not os.path.isfile(filepath):
-        print(f"[IO] ✗ ERROR: File not found → '{filepath}'")
-        print(f"[IO]   Make sure the file exists relative to where you run the script.")
+        print(f"[IO] ERROR: File not found → '{filepath}'")
+        print(f"[IO] Make sure the file exists relative to where you run the script.")
         raise SystemExit(1)
 
 
 def _check_columns(actual_fields, required, filepath):
     """Stop if any required column headers are missing."""
     if actual_fields is None:
-        print(f"[IO] ✗ ERROR: '{filepath}' appears to be empty (no header row).")
+        print(f"[IO] ERROR: '{filepath}' appears to be empty (no header row).")
         raise SystemExit(1)
 
     actual = {f.strip() for f in actual_fields}
     missing = required - actual
     if missing:
-        print(f"[IO] ✗ ERROR: '{filepath}' is missing required columns: {missing}")
-        print(f"[IO]   Found columns: {actual}")
+        print(f"[IO] ERROR: '{filepath}' is missing required columns: {missing}")
+        print(f"[IO] Found columns: {actual}")
         raise SystemExit(1)
 
 
 def _check_not_empty(data, filepath):
     """Stop if the file loaded zero valid records."""
     if not data:
-        print(f"[IO] ✗ ERROR: '{filepath}' contains no valid data rows.")
+        print(f"[IO] ERROR: '{filepath}' contains no valid data rows.")
         raise SystemExit(1)
 
 
@@ -221,7 +221,7 @@ def _parse_positive_number(value, field_name, line_number, errors):
 
 
 def _parse_non_negative_number(value, field_name, line_number, errors):
-    """Parse a number that must be >= 0 (e.g. cost — walking is free). Returns None on failure."""
+    """Parse a number that must be >= 0. Returns None on failure."""
     try:
         num = float(value.strip())
         if num < 0:
