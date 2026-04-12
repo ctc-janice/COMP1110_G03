@@ -6,7 +6,7 @@ Navigating public transport in Hong Kong can sometimes be challenging, especiall
 
 Our approach is simpler than real journey-planning tools such as Google Maps or Citymapper. Those apps rely on live maps and real-time data, while our project uses a handcrafted network with text-based interaction and basic input/output so that the routing logic stays clear and easy to understand.
 
-This report focuses on three parts:
+This report focuses on two parts:
 i) a survey of existing tools,
 ii) a set of realistic case studies, and an evaluation of what our system can handle and where its limitations are.
 
