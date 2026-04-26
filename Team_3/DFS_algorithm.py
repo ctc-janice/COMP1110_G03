@@ -19,7 +19,6 @@ implementation.
 NOTE:
     This module keeps input/data validation to a minimum for code readability.
     Those functions have been dealt with in io_handler.py and validator.py.
-
 """
 
 
@@ -59,3 +58,54 @@ def recursive_journeyGenerator(adj_list, currentpoint, endpoint, journey=[]):
         recursive_journeyGenerator(nextStop, endpoint, journey[:])
         journey.pop(-1)
         visited.remove(option["from"])
+
+
+#use same results list as the first DFS algorithm
+def iterativeDFS(adj_list, startpoint, endpoint):
+    if (startpoint == endpoint):
+        print("You are already at your destination!")
+        return None
+
+    # Defining variables necessary for a stack-based DFS algorithm
+    # the stack initally contains a segment that connects the spawn to one of its neighbours
+    sub_path = []
+    visited = [startpoint]
+    stack = [adj_list[startpoint][0]]
+
+    while len(stack) > 0:    
+        stack_top = stack.pop()
+        destination = stack_top["to"]
+
+        sub_path.append(stack_top) # storing the path that moved the user forward
+
+        if (destination == endpoint):
+            results.append(sub_path[:])
+
+            #implementing the iterative version of backtracking
+            if (len(stack)):
+                while sub_path[-1]["to"] != stack[-1]["from"]:
+                    _ = sub_path.pop()
+                    if _["to"] in visited:
+                        visited.remove(_["to"])
+            continue
+
+        if (destination not in visited):
+            visited.append(destination)
+
+            preAdjSearch_stacklength = len(stack)
+
+            for seg in adj_list[destination]:
+                if (seg["to"] not in visited):
+                    stack.append(seg)
+                
+                # cleaning up sub_path after reaching explicit dead ends
+                elif (seg["to"] in visited) and (len(adj_list[seg["from"]]) == 1):
+                    while (sub_path[-1]["to"] != stack[-1]["from"]):
+                        failedpath = sub_path.pop()
+                        visited.remove(failedpath["to"])
+            
+            # cleaning up sub_path after reaching silent dead ends
+            if (preAdjSearch_stacklength == len(stack)):
+                while (sub_path[-1]["to"] != stack[-1]["from"]):
+                    failedpath = sub_path.pop()
+                    visited.remove(failedpath["to"])
