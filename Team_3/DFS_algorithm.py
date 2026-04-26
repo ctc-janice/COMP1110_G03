@@ -99,7 +99,7 @@ def iterativeDFS(adj_list, startpoint, endpoint):
                     stack.append(seg)
                 
                 # cleaning up sub_path after reaching explicit dead ends
-                elif (seg["to"] in visited) and (len(adjacencies[seg["from"]]) == 1):
+                elif (seg["to"] in visited) and (len(adj_list[seg["from"]]) == 1):
                     while (sub_path[-1]["to"] != stack[-1]["from"]):
                         failedpath = sub_path.pop()
                         visited.remove(failedpath["to"])
