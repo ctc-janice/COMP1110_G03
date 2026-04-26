@@ -278,15 +278,31 @@ def stop_selector(win, stops, prompt):
         safe_addstr(win, 2, cursor_x, (query + "_").ljust(w - cursor_x - 3), attr_title)
         safe_addstr(win, 3, 2, "─" * (w - 4), attr_dim)
 
+        # Column widths (dynamic based on terminal width)
+        col_id   = 8
+        col_type = 10
+        col_name = max(10, w - col_id - col_type - 8)
+
+        # Table header
+        hdr = f"  {'ID':<{col_id}} {'NAME':<{col_name}} {'TYPE':<{col_type}}"
+        safe_addstr(win, 4, 1, hdr, attr_dim | curses.A_BOLD)
+        safe_addstr(win, 5, 2, "─" * (w - 4), attr_dim)
+
         # Stop list
-        list_y  = 4
+        list_y  = 6
         visible = h - list_y - 3
         start   = max(0, selected - visible // 2)
+
+        # "No matches" feedback
+        if q and not any(q in sid or q in n.upper() for sid, n, _ in all_stops):
+            safe_addstr(win, list_y, 3, "No matches found -- showing all stops", attr_hint)
+            list_y += 1
+            visible -= 1
 
         for i, (sid, name, tt) in enumerate(filtered[start:start + visible]):
             idx  = start + i
             row  = list_y + i
-            line = f"  {sid:<8} {name:<30} [{tt}]"
+            line = f"  {sid:<{col_id}} {name:<{col_name}} [{tt}]"
             if idx == selected:
                 safe_addstr(win, row, 1, line.ljust(w - 2), attr_sel)
             else:
@@ -376,6 +392,64 @@ def preference_picker(win):
             return PREFERENCES[key - ord('1')][0]
 
 
+# ── Confirmation dialog ───────────────────────────────────────────────────────
+
+def confirmation_dialog(win, origin_id, dest_id, preference, stops):
+    """
+    Summary card before journey search.
+    Returns "confirm", "cancel", or "swap".
+    """
+    curses.curs_set(0)
+    win.keypad(True)
+
+    origin_name = stops[origin_id]["name"] if origin_id in stops else origin_id
+    dest_name   = stops[dest_id]["name"]   if dest_id   in stops else dest_id
+    pref_label  = preference.upper().replace("_", " ")
+
+    while True:
+        clear_screen(win)
+        h, w = win.getmaxyx()
+        attr_bright = curses.color_pair(C_BRIGHT) | curses.A_BOLD
+        attr_normal = curses.color_pair(C_NORMAL)
+        attr_dim    = curses.color_pair(C_DIM)
+        attr_hint   = curses.color_pair(C_YELLOW)
+
+        box_w = min(56, w - 6)
+        box_h = 12
+        box_y = max(2, (h - box_h) // 2)
+        box_x = max(2, (w - box_w) // 2)
+        draw_box(win, box_y, box_x, box_h, box_w, C_DIM, "CONFIRM JOURNEY")
+
+        inner_x = box_x + 4
+        row = box_y + 2
+        safe_addstr(win, row, inner_x,
+                    f"FROM:  {origin_name} ({origin_id})", attr_bright)
+        row += 2
+        safe_addstr(win, row, inner_x,
+                    f"  TO:  {dest_name} ({dest_id})", attr_bright)
+        row += 2
+        safe_addstr(win, row, inner_x,
+                    f"PREF:  {pref_label}", attr_normal)
+        row += 2
+        safe_addstr(win, row, inner_x,
+                    "─" * (box_w - 8), attr_dim)
+        row += 1
+        safe_addstr(win, row, inner_x,
+                    "ENTER Search   ESC Back   S Swap", attr_hint)
+
+        controls = " ENTER Confirm   ESC Cancel   S Swap origin/dest "
+        safe_addstr(win, h - 2, 2, controls, attr_hint)
+        win.refresh()
+
+        key = win.getch()
+        if key in (curses.KEY_ENTER, 10, 13):
+            return "confirm"
+        elif key == 27:
+            return "cancel"
+        elif key in (ord('s'), ord('S')):
+            return "swap"
+
+
 # ── Loading screen ─────────────────────────────────────────────────────────────
 
 def loading_screen(win, message="SEARCHING FOR ROUTES"):
@@ -449,36 +523,52 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
         safe_addstr(win, row, 2, "─" * (w - 4), attr_dim)
         row += 1
 
+        def stop_name(sid):
+            if stops and sid in stops:
+                return f"{stops[sid]['name']} ({sid})"
+            return sid
+
         for journey in top3:
             rank  = journey["rank"]
             dur   = journey["duration"]
             cost  = journey["cost"]
             segs  = journey["segments_count"]
 
-            # Route header
-            header = f"  #{rank}   {dur:.0f} min   HK${cost:.2f}   {segs} segment(s)"
-            safe_addstr(win, row, 2, header, attr_sel)
+            # Inner route box
+            route_box_h = len(journey["segments"]) + 4
+            route_box_w = min(w - 6, 72)
+            route_box_x = max(3, (w - route_box_w) // 2)
+
+            if row + route_box_h >= h - 3:
+                # Not enough room for a full box — just show remaining inline
+                if row < h - 3:
+                    safe_addstr(win, row, 3, "(more routes below — resize terminal)", attr_dim)
+                break
+
+            draw_box(win, row, route_box_x, route_box_h, route_box_w,
+                     C_DIM, f" ROUTE #{rank} ")
+
+            # Route summary header inside box
+            row += 1
+            header = f"  Time: {dur:.0f} min   Cost: HK${cost:.2f}   Segments: {segs}"
+            safe_addstr(win, row, route_box_x + 2, header, attr_sel)
+            row += 1
+            safe_addstr(win, row, route_box_x + 2, "─" * (route_box_w - 4), attr_dim)
             row += 1
 
-            # Each segment
+            # Each segment — aligned columns
             for seg in journey["segments"]:
-                def name(sid):
-                    if stops and sid in stops:
-                        return f"{stops[sid]['name']} ({sid})"
-                    return sid
-                seg_line = (f"      {name(seg['from'])} → {name(seg['to'])}"
-                            f"   [{seg['transport_type']}  {seg['duration']:.0f}min"
-                            f"  HK${seg['cost']:.2f}]")
+                from_to = f"{stop_name(seg['from'])}  ->  {stop_name(seg['to'])}"
+                detail  = f"[{seg['transport_type']}  {seg['duration']:.0f}min  HK${seg['cost']:.2f}]"
+                # Left-align from_to, right-align detail
+                avail = route_box_w - 6
+                from_to_w = avail - len(detail) - 1
+                seg_line = f"  {from_to:<{max(1, from_to_w)}} {detail}"
                 if row < h - 3:
-                    safe_addstr(win, row, 2, seg_line, attr_normal)
+                    safe_addstr(win, row, route_box_x + 2, seg_line, attr_normal)
                 row += 1
 
-            if row < h - 3:
-                safe_addstr(win, row, 2, "─" * (w - 4), attr_dim)
-            row += 1
-
-            if row >= h - 3:
-                break
+            row += 1  # gap after box
 
         safe_addstr(win, h - 2, 2,
                     " Press any key to return to main menu ",
@@ -547,13 +637,23 @@ def browse_stops_screen(win, stops):
 
         draw_box(win, 0, 0, h - 1, w, C_DIM, f"ALL STOPS  ({len(all_stops)} total)")
 
-        visible = h - 5
+        # Column widths (dynamic based on terminal width)
+        col_id   = 8
+        col_type = 10
+        col_name = max(10, w - col_id - col_type - 10)
+
+        # Table header
+        hdr = f"  {'ID':<{col_id}}  {'NAME':<{col_name}}  {'TYPE':<{col_type}}"
+        safe_addstr(win, 2, 1, hdr, attr_dim | curses.A_BOLD)
+        safe_addstr(win, 3, 2, "─" * (w - 4), attr_dim)
+
+        visible = h - 7
         start   = max(0, selected - visible // 2)
 
         for i, (sid, name, tt) in enumerate(all_stops[start:start + visible]):
             idx  = start + i
-            row  = 2 + i
-            line = f"  {sid:<8}  {name:<34}  [{tt}]"
+            row  = 4 + i
+            line = f"  {sid:<{col_id}}  {name:<{col_name}}  [{tt}]"
             if idx == selected:
                 safe_addstr(win, row, 1, line.ljust(w - 2), attr_sel)
             else:
@@ -755,31 +855,41 @@ def run(stdscr):
             if pref is None:
                 continue
 
-            # Validate
-            ok, result = validate_journey_request(origin, dest, pref, stops)
-            if not ok:
-                error_screen(stdscr, result)
-                continue
+            # Confirmation dialog with swap support
+            while True:
+                action = confirmation_dialog(stdscr, origin, dest, pref, stops)
+                if action == "cancel":
+                    break
+                elif action == "swap":
+                    origin, dest = dest, origin
+                    continue
+                else:  # "confirm"
+                    # Validate
+                    ok, result = validate_journey_request(origin, dest, pref, stops)
+                    if not ok:
+                        error_screen(stdscr, result)
+                        break
 
-            # Search with loading animation
-            loading_screen(stdscr)
+                    # Search with loading animation
+                    loading_screen(stdscr)
 
-            adj_list       = createAdjList(segments)
-            candidate_paths = recursive_journeyGenerator(adj_list, origin, dest)
+                    adj_list       = createAdjList(segments)
+                    candidate_paths = recursive_journeyGenerator(adj_list, origin, dest)
 
-            if not candidate_paths:
-                error_screen(stdscr,
-                    f"No routes found between "
-                    f"{stops[origin]['name']} and {stops[dest]['name']}. "
-                    "Try a different origin or destination.",
-                    title="NO ROUTES FOUND")
-                continue
+                    if not candidate_paths:
+                        error_screen(stdscr,
+                            f"No routes found between "
+                            f"{stops[origin]['name']} and {stops[dest]['name']}. "
+                            "Try a different origin or destination.",
+                            title="NO ROUTES FOUND")
+                        break
 
-            top3 = evaluate_and_rank(candidate_paths, preference=pref, stops=stops)
-            results_screen(stdscr, top3,
-                           stops[origin]["name"],
-                           stops[dest]["name"],
-                           pref, stops)
+                    top3 = evaluate_and_rank(candidate_paths, preference=pref, stops=stops)
+                    results_screen(stdscr, top3,
+                                   stops[origin]["name"],
+                                   stops[dest]["name"],
+                                   pref, stops)
+                    break
 
         # ── 1: BROWSE STOPS ───────────────────────────────────────────────────
         elif choice == 1:
