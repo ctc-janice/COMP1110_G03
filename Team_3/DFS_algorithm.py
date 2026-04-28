@@ -87,47 +87,60 @@ def iterativeDFS(adj_list, startpoint, endpoint, max_path_length = math.inf, res
     # the stack initally contains a segment that connects the spawn to one of its neighbours
     sub_path = []
     visited = [startpoint]
-    stack = [adj_list[startpoint][0]]
 
-    while len(stack) > 0:
-           
-        stack_top = stack.pop()
-        destination = stack_top["to"]
+    for i in range(len(adj_list[startpoint])):
+        stack = [adj_list[startpoint][i]]
 
-        sub_path.append(stack_top) # storing the path that moved the user forward
+        while len(stack) > 0:
+            stack_top = stack.pop()
+            destination = stack_top["to"]
 
-        if (destination == endpoint):
-            results.append(sub_path[:])
+            sub_path.append(stack_top) # storing the path that moved the user forward
 
-            #implementing the iterative version of backtracking
-            if (len(stack)):
-                while sub_path[-1]["to"] != stack[-1]["from"]:
-                    _ = sub_path.pop()
-                    if _["to"] in visited:
-                        visited.remove(_["to"])
-            continue
+            if (destination == endpoint):
+                results.append(sub_path[:])
 
-        if (destination not in visited):
-            visited.append(destination)
+                if stack == [adj_list[startpoint][i]]:
+                    break
 
-            preAdjSearch_stacklength = len(stack)
+                #implementing the iterative version of backtracking
+                if (len(stack)):
+                    while sub_path[-1]["to"] != stack[-1]["from"]:
+                        _ = sub_path.pop()
+                        if _["to"] in visited:
+                            visited.remove(_["to"])
+                continue
 
-            for seg in adj_list[destination]:
-                if (seg["to"] not in visited):
-                    stack.append(seg)
+            if (destination not in visited):
+                visited.append(destination)
+
+                preAdjSearch_stacklength = len(stack)
+
+                for seg in adj_list[destination]:
+                    if (seg["to"] not in visited):
+                        stack.append(seg)
+                    
+                    # cleaning up sub_path after reaching explicit dead ends
+                    elif (seg["to"] in visited) and (len(adj_list[seg["from"]]) == 1):
+                        if (len(stack)):
+                            while ((sub_path[-1]["to"] != stack[-1]["from"])):
+                                failedpath = sub_path.pop()
+                                visited.remove(failedpath["to"])
+                        else:
+                            while ( sub_path[-1]["to"] != stack_top["from"] ):
+                                failedpath = sub_path.pop()
+                                visited.remove(failedpath["to"])
                 
-                # cleaning up sub_path after reaching explicit dead ends
-                elif (seg["to"] in visited) and (len(adj_list[seg["from"]]) == 1):
-                    while (sub_path[-1]["to"] != stack[-1]["from"]):
-                        failedpath = sub_path.pop()
-                        visited.remove(failedpath["to"])
-            
-            # cleaning up sub_path after reaching silent dead ends
-            if (preAdjSearch_stacklength == len(stack)):
-                while (sub_path[-1]["to"] != stack[-1]["from"]):
-                    failedpath = sub_path.pop()
-                    visited.remove(failedpath["to"])
-    
+                # cleaning up sub_path after reaching silent dead ends
+                if (preAdjSearch_stacklength == len(stack)):
+                    if (len(stack)):
+                        while (sub_path[-1]["to"] != stack[-1]["from"]):
+                            failedpath = sub_path.pop()
+                            visited.remove(failedpath["to"])
+        
+        visited = [startpoint]
+        sub_path = []
+        
     for i in results:
         if ( len(i) > max_path_length ):
             results.remove(i)

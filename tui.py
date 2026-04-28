@@ -38,7 +38,7 @@ except ImportError:
     IO_AVAILABLE = False
 
 try:
-    from Team_3.DFS_algorithm import createAdjList, recursive_journeyGenerator
+    from Team_3.DFS_algorithm import createAdjList, recursive_journeyGenerator, iterativeDFS
     DFS_AVAILABLE = True
 except ImportError:
     DFS_AVAILABLE = False
@@ -874,7 +874,7 @@ def run(stdscr):
                     loading_screen(stdscr)
 
                     adj_list       = createAdjList(segments)
-                    candidate_paths = recursive_journeyGenerator(adj_list, origin, dest)
+                    candidate_paths = iterativeDFS(adj_list, origin, dest)
 
                     if not candidate_paths:
                         error_screen(stdscr,
