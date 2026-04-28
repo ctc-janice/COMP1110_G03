@@ -38,13 +38,13 @@ def load_network(stops_filepath, segments_filepath):
     Raises:
         SystemExit if files are missing, empty, or badly formatted.
     """
-    print(f"[IO] Loading stops from:    {stops_filepath}")
-    print(f"[IO] Loading segments from: {segments_filepath}")
+    # print(f"[IO] Loading stops from:    {stops_filepath}")
+    # print(f"[IO] Loading segments from: {segments_filepath}")
 
     stops    = _load_stops(stops_filepath)
     segments = _load_segments(segments_filepath, stops)
 
-    print(f"[IO] Loaded {len(stops)} stops and {len(segments)} segments successfully.\n")
+    # print(f"[IO] Loaded {len(stops)} stops and {len(segments)} segments successfully.\n")
     return stops, segments
 
 
