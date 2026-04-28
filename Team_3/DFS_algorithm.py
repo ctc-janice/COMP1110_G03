@@ -54,7 +54,6 @@ def recursive_journeyGenerator(adj_list, currentpoint, endpoint, max_path_length
 
     if currentpoint == endpoint:
         results.append(journey[:])
-        journey=[]
         return None
     if currentpoint not in adj_list:
         return None
@@ -105,7 +104,7 @@ def iterativeDFS(adj_list, startpoint, endpoint, max_path_length = math.inf, res
 
                 #implementing the iterative version of backtracking
                 if (len(stack)):
-                    while sub_path[-1]["to"] != stack[-1]["from"]:
+                    while (len(sub_path) > 0) and (sub_path[-1]["to"] != stack[-1]["from"]):
                         _ = sub_path.pop()
                         if _["to"] in visited:
                             visited.remove(_["to"])
@@ -123,26 +122,24 @@ def iterativeDFS(adj_list, startpoint, endpoint, max_path_length = math.inf, res
                     # cleaning up sub_path after reaching explicit dead ends
                     elif (seg["to"] in visited) and (len(adj_list[seg["from"]]) == 1):
                         if (len(stack)):
-                            while ((sub_path[-1]["to"] != stack[-1]["from"])):
+                            while len(sub_path)>0 and ((sub_path[-1]["to"] != stack[-1]["from"])):
                                 failedpath = sub_path.pop()
                                 visited.remove(failedpath["to"])
                         else:
-                            while ( sub_path[-1]["to"] != stack_top["from"] ):
+                            while len(sub_path)>0 and ( sub_path[-1]["to"] != stack_top["from"] ):
                                 failedpath = sub_path.pop()
                                 visited.remove(failedpath["to"])
                 
                 # cleaning up sub_path after reaching silent dead ends
                 if (preAdjSearch_stacklength == len(stack)):
                     if (len(stack)):
-                        while (sub_path[-1]["to"] != stack[-1]["from"]):
+                        while len(sub_path)>0 and (sub_path[-1]["to"] != stack[-1]["from"]):
                             failedpath = sub_path.pop()
                             visited.remove(failedpath["to"])
         
         visited = [startpoint]
         sub_path = []
         
-    for i in results:
-        if ( len(i) > max_path_length ):
-            results.remove(i)
+    results = [path for path in results if len(path) <= max_path_length]
 
     return results
