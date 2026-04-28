@@ -1,0 +1,19 @@
+seg_start,seg_end,cost,time
+HKU,Central,8,15
+Central,HKU,8,15
+Central,Hong Kong,5,11
+Hong Kong,Central,5,11
+Central,Admiralty,6,11
+Admiralty,Central,6,11
+Central,Tsim Sha Tsui,16,40
+Tsim Sha Tsui,Central,16,40
+Admiralty,Tsim Sha Tsui,14,35
+Tsim Sha Tsui,Admiralty,14,35
+Admiralty,Wan Chai,8,14
+Wan Chai,Admiralty,8,14
+Wan Chai,Causeway Bay,11,20
+Causeway Bay,Wan Chai,20,11
+Hong Kong,Olympic,3,5
+Olympic,Hong Kong,3,5
+Olympic,Tsim Sha Tsui,20,44
+Tsim Sha Tsui,Olympic,20,44
