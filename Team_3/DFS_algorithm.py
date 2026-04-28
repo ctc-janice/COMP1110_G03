@@ -1,6 +1,8 @@
 """
 This is the DFS_algorithm.py file.
 
+It requires the user to import the math module.
+
 It implements two major functions: createAdjList and journeyGenerator.
 
 createAdjList: returns adj_list, a dictionary that where each key is the name of
@@ -21,6 +23,7 @@ NOTE:
     Those functions have been dealt with in io_handler.py and validator.py.
 """
 
+import math
 
 #   Generate an adjacency list for all stops
 #   Reads the list of segments and extracts two things from each segment:
@@ -40,11 +43,17 @@ def createAdjList(segments):
 
     return adj_list
 
-results = []
-visited = set()
-def recursive_journeyGenerator(adj_list, currentpoint, endpoint, journey=[]):
+
+def recursive_journeyGenerator(adj_list, currentpoint, endpoint, max_path_length = math.inf, journey=None, results=None, visited=None):
+    if ( journey is None ):
+        journey = []
+    if ( results is None ):
+        results = []
+    if ( visited is None ):
+        visited = set()
+
     if currentpoint == endpoint:
-        results.append(journey)
+        results.append(journey[:])
         journey=[]
         return None
     if currentpoint not in adj_list:
@@ -55,13 +64,21 @@ def recursive_journeyGenerator(adj_list, currentpoint, endpoint, journey=[]):
         journey.append(option)
         visited.add(option["from"])
         nextStop = option["to"]
-        recursive_journeyGenerator(nextStop, endpoint, journey[:])
+        recursive_journeyGenerator(adj_list, nextStop, endpoint, max_path_length, journey[:], results, visited)
         journey.pop(-1)
         visited.remove(option["from"])
+    
+    for i in results:
+        if ( len(i) > max_path_length ):
+            results.remove(i)
+    
+    return results
 
 
-#use same results list as the first DFS algorithm
-def iterativeDFS(adj_list, startpoint, endpoint):
+def iterativeDFS(adj_list, startpoint, endpoint, max_path_length = math.inf, results=None):
+    if ( results is None ):
+        results = []
+    
     if (startpoint == endpoint):
         print("You are already at your destination!")
         return None
@@ -72,7 +89,8 @@ def iterativeDFS(adj_list, startpoint, endpoint):
     visited = [startpoint]
     stack = [adj_list[startpoint][0]]
 
-    while len(stack) > 0:    
+    while len(stack) > 0:
+           
         stack_top = stack.pop()
         destination = stack_top["to"]
 
@@ -109,3 +127,9 @@ def iterativeDFS(adj_list, startpoint, endpoint):
                 while (sub_path[-1]["to"] != stack[-1]["from"]):
                     failedpath = sub_path.pop()
                     visited.remove(failedpath["to"])
+    
+    for i in results:
+        if ( len(i) > max_path_length ):
+            results.remove(i)
+
+    return results
