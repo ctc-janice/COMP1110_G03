@@ -1,16 +1,17 @@
 stop_id,stop_name,transport_type
-HK001,Central MTR,MTR
-HK002,Admiralty MTR,MTR
-HK003,Wan Chai MTR,MTR
-HK004,Causeway Bay MTR,MTR
-HK005,Tsim Sha Tsui MTR,MTR
-HK006,Jordan MTR,MTR
-HK007,Mong Kok MTR,MTR
-HK008,Central Bus Terminal,BUS
-HK009,HKU MTR,MTR
-HK010,Sheung Wan MTR,MTR
-HK011,Kennedy Town MTR,MTR
-HK012,Tin Hau MTR,MTR
-HK013,North Point MTR,MTR
-HK014,Wan Chai Ferry Pier,FERRY
-HK015,Admiralty Bus Terminus,BUS
+HK001,Kennedy Town MTR,MTR
+HK002,HKU MTR,MTR
+HK003,Sai Ying Pun,MTR
+HK004,Sheung Wan MTR,MTR
+HK005,Central MTR,MTR
+HK006,Admiralty MTR,MTR
+HK007,Wan Chai MTR,MTR
+HK008,Causeway Bay MTR,MTR
+HK009,Tin Hau,MTR
+HK010,Tsim Sha Tsui,MTR
+HK011,Jordan, MTR
+HK012,Mong Kok,MTR
+HK013,Central Bus Terminus,BUS
+HK014,Admiralty Bus Terminus,BUS
+HK015,Central Ferry Pier,FERRY
+HK016,Tsim Sha Tsui Ferry Pier,FERRY
