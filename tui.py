@@ -9,14 +9,15 @@ Screens:
   2. Main menu         — arrow-key navigation
   3. Stop selector     — arrow keys + live type-to-search
   4. Preference picker — arrow keys
-  5. Loading screen    — spinning animation while DFS runs
-  6. Results screen    — top 3 routes in bordered box
-  7. Error screen      — red bordered error message
+  5. Confirmation      — review / swap before searching
+  6. Loading screen    — spinning animation while DFS runs
+  7. Results screen    — top 3 routes in bordered box
+  8. Error screen      — red bordered error / warning message
 
 Controls (shown on every screen):
   UP / DOWN   — navigate
   ENTER       — confirm selection
-  BACKSPACE   — go back / clear search
+  ESC         — go back / cancel
   Q           — quit from main menu
 
 Compatibility:
@@ -27,6 +28,8 @@ Compatibility:
 import curses
 import time
 import textwrap
+import io
+import sys
 
 # ── Try importing project modules ──────────────────────────────────────────────
 try:
@@ -44,13 +47,13 @@ except ImportError:
     DFS_AVAILABLE = False
 
 # ── Colour pair IDs ────────────────────────────────────────────────────────────
-C_NORMAL   = 1   # green on black
-C_BRIGHT   = 2   # bright green on black
-C_SELECTED = 3   # black on green  (highlighted row)
-C_DIM      = 4   # dark green on black (borders, decorations)
-C_ERROR    = 5   # red on black
-C_TITLE    = 6   # bright green on black + bold (headers)
-C_YELLOW   = 7   # yellow on black (prompts / hints)
+C_NORMAL   = 1
+C_BRIGHT   = 2
+C_SELECTED = 3
+C_DIM      = 4
+C_ERROR    = 5
+C_TITLE    = 6
+C_YELLOW   = 7
 
 
 def init_colours():
@@ -68,7 +71,6 @@ def init_colours():
 # ── Drawing helpers ────────────────────────────────────────────────────────────
 
 def safe_addstr(win, y, x, text, attr=0):
-    """addstr that silently ignores out-of-bounds writes."""
     h, w = win.getmaxyx()
     if y < 0 or y >= h or x < 0:
         return
@@ -82,17 +84,12 @@ def safe_addstr(win, y, x, text, attr=0):
 
 
 def draw_box(win, y, x, h, w, colour_pair, title=""):
-    """Draw a single-line Unicode box."""
     attr = curses.color_pair(colour_pair)
-    # top
-    safe_addstr(win, y,     x,     "┌" + "─" * (w - 2) + "┐", attr)
-    # sides
+    safe_addstr(win, y,         x,         "┌" + "─" * (w - 2) + "┐", attr)
     for row in range(1, h - 1):
         safe_addstr(win, y + row, x,         "│", attr)
         safe_addstr(win, y + row, x + w - 1, "│", attr)
-    # bottom
-    safe_addstr(win, y + h - 1, x, "└" + "─" * (w - 2) + "┘", attr)
-    # optional title centred on top border
+    safe_addstr(win, y + h - 1, x,         "└" + "─" * (w - 2) + "┘", attr)
     if title:
         label = f" {title} "
         tx = x + max(1, (w - len(label)) // 2)
@@ -108,6 +105,31 @@ def centre_text(win, y, text, attr=0):
 def clear_screen(win):
     win.erase()
     win.bkgd(' ', curses.color_pair(C_NORMAL))
+
+
+# ── Safe network loader — captures all io_handler prints ──────────────────────
+
+def _safe_load_network(stops_path, segments_path):
+    """
+    Wraps load_network() and captures any print() output from io_handler
+    (warnings, errors) so they do not bleed behind the curses screen.
+
+    Returns:
+        (stops, segments, captured_output)
+        On failure: (None, None, captured_output)
+    """
+    old_stdout = sys.stdout
+    sys.stdout = captured = io.StringIO()
+    try:
+        stops, segs = load_network(stops_path, segments_path)
+        sys.stdout = old_stdout
+        return stops, segs, captured.getvalue().strip()
+    except SystemExit:
+        sys.stdout = old_stdout
+        return None, None, captured.getvalue().strip()
+    except Exception:
+        sys.stdout = old_stdout
+        return None, None, captured.getvalue().strip()
 
 
 # ── Boot splash ────────────────────────────────────────────────────────────────
@@ -126,14 +148,12 @@ GROUP    = "COMP1110  ·  Group G03  ·  Topic B"
 
 
 def boot_splash(win):
-    """Animated boot screen — logo fades in line by line."""
     clear_screen(win)
     h, w = win.getmaxyx()
     start_y = max(2, h // 2 - len(LOGO) - 3)
     attr_bright = curses.color_pair(C_BRIGHT) | curses.A_BOLD
     attr_dim    = curses.color_pair(C_DIM)
 
-    # Draw logo line by line with a tiny delay
     for i, line in enumerate(LOGO):
         safe_addstr(win, start_y + i, max(0, (w - len(line)) // 2), line, attr_bright)
         win.refresh()
@@ -142,7 +162,6 @@ def boot_splash(win):
     centre_text(win, start_y + len(LOGO) + 1, SUBTITLE, attr_bright)
     centre_text(win, start_y + len(LOGO) + 2, GROUP,    attr_dim)
 
-    # Animated "INITIALISING" dots
     dots_y = start_y + len(LOGO) + 4
     base   = "  INITIALISING"
     for n in range(12):
@@ -158,34 +177,30 @@ def boot_splash(win):
 # ── Main menu ──────────────────────────────────────────────────────────────────
 
 MENU_ITEMS = [
-    ("PLAN A JOURNEY",      "Find and rank routes between two stops"),
-    ("BROWSE STOPS",        "View all stops in the network"),
-    ("NETWORK OVERVIEW",    "Summary of stops, segments and transport modes"),
-    ("LOAD NETWORK FILE",   "Switch to a different stops / segments CSV"),
-    ("EXIT",                "Quit the program"),
+    ("PLAN A JOURNEY",     "Find and rank routes between two stops"),
+    ("BROWSE STOPS",       "View all stops in the network"),
+    ("NETWORK OVERVIEW",   "Summary of stops, segments and transport modes"),
+    ("LOAD NETWORK FILE",  "Switch to a different stops / segments CSV"),
+    ("EXIT",               "Quit the program"),
 ]
 
 
 def draw_main_menu(win, selected, stops, segments):
     clear_screen(win)
     h, w = win.getmaxyx()
-    attr_title    = curses.color_pair(C_TITLE)  | curses.A_BOLD
-    attr_normal   = curses.color_pair(C_NORMAL)
-    attr_sel      = curses.color_pair(C_SELECTED) | curses.A_BOLD
-    attr_dim      = curses.color_pair(C_DIM)
-    attr_hint     = curses.color_pair(C_YELLOW)
+    attr_normal = curses.color_pair(C_NORMAL)
+    attr_sel    = curses.color_pair(C_SELECTED) | curses.A_BOLD
+    attr_dim    = curses.color_pair(C_DIM)
+    attr_hint   = curses.color_pair(C_YELLOW)
 
-    # Outer border
     draw_box(win, 0, 0, h - 1, w, C_DIM, "SMART PUBLIC TRANSPORT ADVISOR")
 
-    # Status bar (stop/segment count)
     if stops:
         status = f"  Network loaded: {len(stops)} stops  ·  {len(segments)//2} segments  "
     else:
         status = "  No network loaded  "
     safe_addstr(win, h - 2, 2, status, attr_dim)
 
-    # Menu box
     box_h = len(MENU_ITEMS) * 2 + 4
     box_w = min(60, w - 6)
     box_y = max(3, (h - box_h) // 2)
@@ -193,25 +208,21 @@ def draw_main_menu(win, selected, stops, segments):
     draw_box(win, box_y, box_x, box_h, box_w, C_DIM, "MAIN MENU")
 
     for i, (label, hint) in enumerate(MENU_ITEMS):
-        row_y = box_y + 2 + i * 2
+        row_y  = box_y + 2 + i * 2
         prefix = f"  [{i+1}]  "
         text   = prefix + label.ljust(box_w - len(prefix) - 4)
         if i == selected:
-            safe_addstr(win, row_y, box_x + 1, text, attr_sel)
+            safe_addstr(win, row_y,     box_x + 1, text, attr_sel)
+            safe_addstr(win, row_y + 1, box_x + 5, hint, attr_dim)
         else:
             safe_addstr(win, row_y, box_x + 1, text, attr_normal)
-        # hint line below selected
-        if i == selected:
-            safe_addstr(win, row_y + 1, box_x + 5, hint, attr_dim)
 
-    # Controls footer
     controls = " ↑↓ Navigate   ENTER Select   Q Quit "
     safe_addstr(win, h - 2, w - len(controls) - 2, controls, attr_hint)
     win.refresh()
 
 
 def main_menu_screen(win, stops, segments):
-    """Returns index 0-4 for selected action."""
     selected = 0
     curses.curs_set(0)
     win.keypad(True)
@@ -228,39 +239,37 @@ def main_menu_screen(win, stops, segments):
         elif key in (curses.KEY_ENTER, 10, 13):
             return selected
         elif key in (ord('q'), ord('Q')):
-            return 4  # EXIT
+            return 4
         elif ord('1') <= key <= ord('5'):
             return key - ord('1')
 
 
-# ── Stop selector (arrow + type-to-search) ────────────────────────────────────
+# ── Stop selector ─────────────────────────────────────────────────────────────
 
 def stop_selector(win, stops, prompt):
     """
     Full-screen stop picker.
-    UP/DOWN to navigate, type letters to filter live, ENTER to confirm,
-    ESC/backspace to cancel.
+    UP/DOWN to navigate; type to filter the list live.
+    ENTER confirms, ESC cancels.
     Returns stop_id string, or None if cancelled.
     """
     curses.curs_set(1)
     win.keypad(True)
     win.timeout(50)
 
-    query    = ""
-    selected = 0
+    query     = ""
+    selected  = 0
     all_stops = [(sid, info["name"], info["transport_type"])
                  for sid, info in stops.items()]
 
     while True:
-        # Filter by query
-        q = query.upper()
+        q        = query.upper()
         filtered = [(sid, name, tt) for sid, name, tt in all_stops
                     if q in sid or q in name.upper()]
         if not filtered:
-            filtered = all_stops  # never show empty list
+            filtered = all_stops
         selected = max(0, min(selected, len(filtered) - 1))
 
-        # Draw
         clear_screen(win)
         h, w = win.getmaxyx()
         attr_title  = curses.color_pair(C_TITLE) | curses.A_BOLD
@@ -271,32 +280,29 @@ def stop_selector(win, stops, prompt):
 
         draw_box(win, 0, 0, h - 1, w, C_DIM, prompt)
 
-        # Search bar
         search_label = "  SEARCH: "
         safe_addstr(win, 2, 2, search_label, attr_dim)
         cursor_x = 2 + len(search_label)
-        safe_addstr(win, 2, cursor_x, (query + "_").ljust(w - cursor_x - 3), attr_title)
+        safe_addstr(win, 2, cursor_x,
+                    (query + "_").ljust(w - cursor_x - 3), attr_title)
         safe_addstr(win, 3, 2, "─" * (w - 4), attr_dim)
 
-        # Column widths (dynamic based on terminal width)
         col_id   = 8
         col_type = 10
         col_name = max(10, w - col_id - col_type - 8)
 
-        # Table header
         hdr = f"  {'ID':<{col_id}} {'NAME':<{col_name}} {'TYPE':<{col_type}}"
         safe_addstr(win, 4, 1, hdr, attr_dim | curses.A_BOLD)
         safe_addstr(win, 5, 2, "─" * (w - 4), attr_dim)
 
-        # Stop list
         list_y  = 6
         visible = h - list_y - 3
         start   = max(0, selected - visible // 2)
 
-        # "No matches" feedback
         if q and not any(q in sid or q in n.upper() for sid, n, _ in all_stops):
-            safe_addstr(win, list_y, 3, "No matches found -- showing all stops", attr_hint)
-            list_y += 1
+            safe_addstr(win, list_y, 3,
+                        "No matches — showing all stops", attr_hint)
+            list_y  += 1
             visible -= 1
 
         for i, (sid, name, tt) in enumerate(filtered[start:start + visible]):
@@ -308,16 +314,14 @@ def stop_selector(win, stops, prompt):
             else:
                 safe_addstr(win, row, 1, line, attr_normal)
 
-        # Scroll hint
         if len(filtered) > visible:
             pct = int(100 * selected / max(1, len(filtered) - 1))
             safe_addstr(win, h - 2, w - 12, f"  {pct:3d}%  ▓ ", attr_dim)
 
-        controls = " ↑↓ Navigate   Type to Search   ENTER Select   ESC Cancel "
+        controls = " ↑↓ Navigate   Type to filter   ENTER Select   ESC Cancel "
         safe_addstr(win, h - 2, 2, controls, attr_hint)
         win.refresh()
 
-        # Input
         key = win.getch()
         if key == curses.KEY_UP:
             selected = max(0, selected - 1)
@@ -325,8 +329,8 @@ def stop_selector(win, stops, prompt):
             selected = min(len(filtered) - 1, selected + 1)
         elif key in (curses.KEY_ENTER, 10, 13):
             curses.curs_set(0)
-            return filtered[selected][0]  # return stop_id
-        elif key == 27:  # ESC
+            return filtered[selected][0]
+        elif key == 27:
             curses.curs_set(0)
             return None
         elif key in (curses.KEY_BACKSPACE, 127, 8):
@@ -347,7 +351,6 @@ PREFERENCES = [
 
 
 def preference_picker(win):
-    """Returns preference string, or None if cancelled."""
     curses.curs_set(0)
     win.keypad(True)
     selected = 0
@@ -368,7 +371,7 @@ def preference_picker(win):
 
         for i, (pref, desc) in enumerate(PREFERENCES):
             row_y = box_y + 2 + i * 2
-            label = f"  [{i+1}]  {pref.upper().replace('_',' ')}"
+            label = f"  [{i+1}]  {pref.upper().replace('_', ' ')}"
             if i == selected:
                 safe_addstr(win, row_y,     box_x + 1, label.ljust(box_w - 2), attr_sel)
                 safe_addstr(win, row_y + 1, box_x + 7, desc, attr_dim)
@@ -395,10 +398,6 @@ def preference_picker(win):
 # ── Confirmation dialog ───────────────────────────────────────────────────────
 
 def confirmation_dialog(win, origin_id, dest_id, preference, stops):
-    """
-    Summary card before journey search.
-    Returns "confirm", "cancel", or "swap".
-    """
     curses.curs_set(0)
     win.keypad(True)
 
@@ -431,8 +430,7 @@ def confirmation_dialog(win, origin_id, dest_id, preference, stops):
         safe_addstr(win, row, inner_x,
                     f"PREF:  {pref_label}", attr_normal)
         row += 2
-        safe_addstr(win, row, inner_x,
-                    "─" * (box_w - 8), attr_dim)
+        safe_addstr(win, row, inner_x, "─" * (box_w - 8), attr_dim)
         row += 1
         safe_addstr(win, row, inner_x,
                     "ENTER Search   ESC Back   S Swap", attr_hint)
@@ -450,16 +448,9 @@ def confirmation_dialog(win, origin_id, dest_id, preference, stops):
             return "swap"
 
 
-# ── Loading screen ─────────────────────────────────────────────────────────────
+# ── Loading screen ────────────────────────────────────────────────────────────
 
 def loading_screen(win, message="SEARCHING FOR ROUTES"):
-    """
-    Animated loading screen with all three styles combined:
-      - Spinning line in the centre
-      - Progress bar below
-      - Pulsing dots in the label
-    Runs for a fixed number of frames — caller does the actual work after.
-    """
     curses.curs_set(0)
     h, w = win.getmaxyx()
     attr_bright = curses.color_pair(C_BRIGHT) | curses.A_BOLD
@@ -468,25 +459,22 @@ def loading_screen(win, message="SEARCHING FOR ROUTES"):
 
     spinner_chars = ['|', '/', '─', '\\']
     bar_width     = min(40, w - 10)
-    frames        = 24   # ~3 seconds at ~8fps
+    frames        = 24
 
     for frame in range(frames):
         clear_screen(win)
         draw_box(win, 0, 0, h - 1, w, C_DIM, "PLEASE WAIT")
 
-        spin    = spinner_chars[frame % 4]
-        dots    = "." * ((frame % 4))
-        label   = f"  {spin}  {message}{dots.ljust(3)}  {spin}  "
+        spin     = spinner_chars[frame % 4]
+        dots     = "." * (frame % 4)
+        label    = f"  {spin}  {message}{dots.ljust(3)}  {spin}  "
         centre_text(win, h // 2 - 2, label, attr_bright)
 
-        # Progress bar
         filled   = int(bar_width * frame / frames)
         bar      = "[" + "=" * filled + ">" + " " * (bar_width - filled - 1) + "]"
         pct      = int(100 * frame / frames)
-        bar_line = f"{bar}  {pct:3d}%"
-        centre_text(win, h // 2, bar_line, attr_yellow)
+        centre_text(win, h // 2, f"{bar}  {pct:3d}%", attr_yellow)
 
-        # Pulse line
         pulse_chars = "·  ··  ···  ··  ·"
         pulse = pulse_chars[(frame * 2) % len(pulse_chars):][:bar_width]
         centre_text(win, h // 2 + 2, pulse.center(bar_width + 8), attr_dim)
@@ -495,13 +483,11 @@ def loading_screen(win, message="SEARCHING FOR ROUTES"):
         time.sleep(0.12)
 
 
-# ── Results screen ─────────────────────────────────────────────────────────────
+# ── Results screen ────────────────────────────────────────────────────────────
 
 def results_screen(win, top3, origin_name, dest_name, preference, stops):
-    """Display top 3 routes in a retro bordered box. Press any key to continue."""
     curses.curs_set(0)
     win.keypad(True)
-
     pref_label = preference.upper().replace("_", " ")
 
     while True:
@@ -513,12 +499,13 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
         attr_sel    = curses.color_pair(C_SELECTED) | curses.A_BOLD
         attr_hint   = curses.color_pair(C_YELLOW)
 
-        title = f"TOP {len(top3)} ROUTES  ·  {pref_label}"
-        draw_box(win, 0, 0, h - 1, w, C_DIM, title)
+        draw_box(win, 0, 0, h - 1, w, C_DIM,
+                 f"TOP {len(top3)} ROUTES  ·  {pref_label}")
 
         row = 2
-        route_label = f"  FROM: {origin_name}   →   TO: {dest_name}"
-        safe_addstr(win, row, 2, route_label, attr_bright)
+        safe_addstr(win, row, 2,
+                    f"  FROM: {origin_name}   →   TO: {dest_name}",
+                    attr_bright)
         row += 1
         safe_addstr(win, row, 2, "─" * (w - 4), attr_dim)
         row += 1
@@ -529,70 +516,68 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
             return sid
 
         for journey in top3:
-            rank  = journey["rank"]
-            dur   = journey["duration"]
-            cost  = journey["cost"]
-            segs  = journey["segments_count"]
+            rank = journey["rank"]
+            dur  = journey["duration"]
+            cost = journey["cost"]
+            segs = journey["segments_count"]
 
-            # Inner route box
             route_box_h = len(journey["segments"]) + 4
             route_box_w = min(w - 6, 72)
             route_box_x = max(3, (w - route_box_w) // 2)
 
             if row + route_box_h >= h - 3:
-                # Not enough room for a full box — just show remaining inline
                 if row < h - 3:
-                    safe_addstr(win, row, 3, "(more routes below — resize terminal)", attr_dim)
+                    safe_addstr(win, row, 3,
+                                "(resize terminal to see more routes)",
+                                attr_dim)
                 break
 
             draw_box(win, row, route_box_x, route_box_h, route_box_w,
                      C_DIM, f" ROUTE #{rank} ")
-
-            # Route summary header inside box
             row += 1
-            header = f"  Time: {dur:.0f} min   Cost: HK${cost:.2f}   Segments: {segs}"
+            header = (f"  Time: {dur:.0f} min   "
+                      f"Cost: HK${cost:.2f}   "
+                      f"Segments: {segs}")
             safe_addstr(win, row, route_box_x + 2, header, attr_sel)
             row += 1
-            safe_addstr(win, row, route_box_x + 2, "─" * (route_box_w - 4), attr_dim)
+            safe_addstr(win, row, route_box_x + 2,
+                        "─" * (route_box_w - 4), attr_dim)
             row += 1
 
-            # Each segment — aligned columns
             for seg in journey["segments"]:
-                from_to = f"{stop_name(seg['from'])}  ->  {stop_name(seg['to'])}"
-                detail  = f"[{seg['transport_type']}  {seg['duration']:.0f}min  HK${seg['cost']:.2f}]"
-                # Left-align from_to, right-align detail
-                avail = route_box_w - 6
+                from_to  = f"{stop_name(seg['from'])}  ->  {stop_name(seg['to'])}"
+                detail   = (f"[{seg['transport_type']}  "
+                            f"{seg['duration']:.0f}min  "
+                            f"HK${seg['cost']:.2f}]")
+                avail     = route_box_w - 6
                 from_to_w = avail - len(detail) - 1
-                seg_line = f"  {from_to:<{max(1, from_to_w)}} {detail}"
+                seg_line  = f"  {from_to:<{max(1, from_to_w)}} {detail}"
                 if row < h - 3:
                     safe_addstr(win, row, route_box_x + 2, seg_line, attr_normal)
                 row += 1
 
-            row += 1  # gap after box
+            row += 1
 
         safe_addstr(win, h - 2, 2,
                     " Press any key to return to main menu ",
                     attr_hint)
         win.refresh()
 
-        key = win.getch()
-        if key != curses.ERR:
+        if win.getch() != curses.ERR:
             return
 
 
-# ── Error / info screen ────────────────────────────────────────────────────────
+# ── Error / warning screen ────────────────────────────────────────────────────
 
 def error_screen(win, message, title="ERROR"):
-    """Red-bordered error box. Press any key to dismiss."""
     curses.curs_set(0)
     win.keypad(True)
 
     while True:
         clear_screen(win)
         h, w = win.getmaxyx()
-        attr_err  = curses.color_pair(C_ERROR)  | curses.A_BOLD
+        attr_err  = curses.color_pair(C_ERROR) | curses.A_BOLD
         attr_hint = curses.color_pair(C_YELLOW)
-        attr_dim  = curses.color_pair(C_DIM)
 
         box_w = min(60, w - 6)
         lines = textwrap.wrap(message, box_w - 4)
@@ -600,7 +585,8 @@ def error_screen(win, message, title="ERROR"):
         box_y = max(2, (h - box_h) // 2)
         box_x = max(2, (w - box_w) // 2)
 
-        draw_box(win, box_y, box_x, box_h, box_w, C_ERROR, f"  ✗  {title}  ")
+        draw_box(win, box_y, box_x, box_h, box_w, C_ERROR,
+                 f"  ✗  {title}  ")
 
         for i, line in enumerate(lines):
             safe_addstr(win, box_y + 2 + i, box_x + 3, line, attr_err)
@@ -610,15 +596,13 @@ def error_screen(win, message, title="ERROR"):
                     attr_hint)
         win.refresh()
 
-        key = win.getch()
-        if key != curses.ERR:
+        if win.getch() != curses.ERR:
             return
 
 
-# ── Browse stops screen ────────────────────────────────────────────────────────
+# ── Browse stops screen ───────────────────────────────────────────────────────
 
 def browse_stops_screen(win, stops):
-    """Scrollable stop browser."""
     curses.curs_set(0)
     win.keypad(True)
     win.timeout(50)
@@ -635,14 +619,13 @@ def browse_stops_screen(win, stops):
         attr_dim    = curses.color_pair(C_DIM)
         attr_hint   = curses.color_pair(C_YELLOW)
 
-        draw_box(win, 0, 0, h - 1, w, C_DIM, f"ALL STOPS  ({len(all_stops)} total)")
+        draw_box(win, 0, 0, h - 1, w, C_DIM,
+                 f"ALL STOPS  ({len(all_stops)} total)")
 
-        # Column widths (dynamic based on terminal width)
         col_id   = 8
         col_type = 10
         col_name = max(10, w - col_id - col_type - 10)
 
-        # Table header
         hdr = f"  {'ID':<{col_id}}  {'NAME':<{col_name}}  {'TYPE':<{col_type}}"
         safe_addstr(win, 2, 1, hdr, attr_dim | curses.A_BOLD)
         safe_addstr(win, 3, 2, "─" * (w - 4), attr_dim)
@@ -673,10 +656,9 @@ def browse_stops_screen(win, stops):
             return
 
 
-# ── Network overview screen ────────────────────────────────────────────────────
+# ── Network overview screen ───────────────────────────────────────────────────
 
 def network_overview_screen(win, stops, segments):
-    """Static summary screen."""
     curses.curs_set(0)
     win.keypad(True)
 
@@ -727,17 +709,17 @@ def network_overview_screen(win, stops, segments):
                     attr_hint)
         win.refresh()
 
-        key = win.getch()
-        if key != curses.ERR:
+        if win.getch() != curses.ERR:
             return
 
 
-# ── Load network screen ────────────────────────────────────────────────────────
+# ── Load network screen ───────────────────────────────────────────────────────
 
 def load_network_screen(win):
     """
-    Prompt for new CSV paths with a simple inline editor.
-    Returns (stops, segments) or (None, None) if cancelled / failed.
+    Prompt for CSV paths, load the network, and return (stops, segments).
+    All io_handler output is captured and shown through error_screen if needed.
+    Returns (stops, segments) on success, or (None, None) on cancel/failure.
     """
     curses.curs_set(1)
     win.keypad(True)
@@ -752,16 +734,16 @@ def load_network_screen(win):
         clear_screen(win)
         h, w = win.getmaxyx()
         attr_bright = curses.color_pair(C_BRIGHT) | curses.A_BOLD
-        attr_normal = curses.color_pair(C_NORMAL)
         attr_sel    = curses.color_pair(C_SELECTED)
         attr_dim    = curses.color_pair(C_DIM)
+        attr_normal = curses.color_pair(C_NORMAL)
         attr_hint   = curses.color_pair(C_YELLOW)
 
         draw_box(win, 0, 0, h - 1, w, C_DIM, "LOAD NETWORK FILE")
 
         for i, (label, field) in enumerate(zip(labels, fields)):
             row = h // 2 - 2 + i * 3
-            safe_addstr(win, row,     4, label, attr_dim)
+            safe_addstr(win, row, 4, label, attr_dim)
             val = "".join(field)
             if i == active:
                 safe_addstr(win, row + 1, 4,
@@ -775,26 +757,37 @@ def load_network_screen(win):
         win.refresh()
 
         key = win.getch()
-        if key == 9:  # TAB
+        if key == 9:
             active = 1 - active
         elif key in (curses.KEY_ENTER, 10, 13):
             stops_path = "".join(fields[0]).strip() or default_stops
             segs_path  = "".join(fields[1]).strip() or default_segs
-            try:
-                curses.curs_set(0)
-                # Brief loading flash
-                clear_screen(win)
-                centre_text(win, h // 2,
-                            f"  Loading {stops_path} ...",
-                            attr_bright)
-                win.refresh()
-                time.sleep(0.4)
-                stops, segs = load_network(stops_path, segs_path)
+
+            curses.curs_set(0)
+            clear_screen(win)
+            centre_text(win, h // 2,
+                        f"  Loading {stops_path} ...",
+                        attr_bright)
+            win.refresh()
+            time.sleep(0.3)
+
+            stops, segs, output = _safe_load_network(stops_path, segs_path)
+
+            if stops is not None:
+                # Show any warnings (e.g. duplicate stop IDs) before returning
+                if output:
+                    error_screen(win, output, title="NETWORK WARNINGS")
                 return stops, segs
-            except SystemExit:
-                return None, None
-            except Exception as e:
-                return None, None
+            else:
+                # Show the captured error output from io_handler
+                msg = output if output else (
+                    "Could not load the network. "
+                    "Check the file path and CSV format."
+                )
+                error_screen(win, msg, title="LOAD FAILED")
+                curses.curs_set(1)
+                # Stay in the load screen so user can correct the path
+
         elif key == 27:
             curses.curs_set(0)
             return None, None
@@ -812,34 +805,40 @@ def run(stdscr):
     stdscr.bkgd(' ', curses.color_pair(C_NORMAL))
     curses.curs_set(0)
 
-    # Boot
     boot_splash(stdscr)
 
-    # Load default network
+    # Load default network — capture all io_handler output
     stops, segments = {}, []
     if IO_AVAILABLE:
-        try:
-            stops, segments = load_network(
-                "Team_2/sample_data/stops.csv",
-                "Team_2/sample_data/segments.csv"
+        s, seg, output = _safe_load_network(
+            "Team_2/sample_data/stops.csv",
+            "Team_2/sample_data/segments.csv"
+        )
+        if s is not None:
+            stops, segments = s, seg
+            if output:
+                error_screen(stdscr, output, title="NETWORK WARNINGS")
+        else:
+            msg = output if output else (
+                "Default network files not found. "
+                "Use 'Load Network File' to load your CSV files."
             )
-        except Exception:
-            pass
+            error_screen(stdscr, msg, title="NETWORK LOAD ERROR")
 
     # Main loop
     while True:
         choice = main_menu_screen(stdscr, stops, segments)
 
-        # ── 0: PLAN A JOURNEY ──────────────────────────────────────────────────
+        # ── 0: PLAN A JOURNEY ─────────────────────────────────────────────────
         if choice == 0:
             if not stops:
-                error_screen(stdscr, "No network loaded. Use 'Load Network File' first.")
+                error_screen(stdscr,
+                    "No network loaded. Use 'Load Network File' first.")
                 continue
             if not DFS_AVAILABLE:
                 error_screen(stdscr,
-                    "Journey search is not yet available. "
-                    "The DFS module (Team_3/DFS_algorithm.py) is missing "
-                    "or does not yet export recursive_journeyGenerator.",
+                    "Journey search is not available. "
+                    "DFS_algorithm.py is missing or not yet complete.",
                     title="MODULE NOT READY")
                 continue
 
@@ -855,7 +854,6 @@ def run(stdscr):
             if pref is None:
                 continue
 
-            # Confirmation dialog with swap support
             while True:
                 action = confirmation_dialog(stdscr, origin, dest, pref, stops)
                 if action == "cancel":
@@ -863,33 +861,39 @@ def run(stdscr):
                 elif action == "swap":
                     origin, dest = dest, origin
                     continue
-                else:  # "confirm"
-                    # Validate
-                    ok, result = validate_journey_request(origin, dest, pref, stops)
-                    if not ok:
-                        error_screen(stdscr, result)
-                        break
 
-                    # Search with loading animation
-                    loading_screen(stdscr)
-
-                    adj_list       = createAdjList(segments)
-                    candidate_paths = iterativeDFS(adj_list, origin, dest)
-
-                    if not candidate_paths:
-                        error_screen(stdscr,
-                            f"No routes found between "
-                            f"{stops[origin]['name']} and {stops[dest]['name']}. "
-                            "Try a different origin or destination.",
-                            title="NO ROUTES FOUND")
-                        break
-
-                    top3 = evaluate_and_rank(candidate_paths, preference=pref, stops=stops)
-                    results_screen(stdscr, top3,
-                                   stops[origin]["name"],
-                                   stops[dest]["name"],
-                                   pref, stops)
+                # Validate
+                ok, result = validate_journey_request(
+                    origin, dest, pref, stops)
+                if not ok:
+                    error_screen(stdscr, result)
                     break
+
+                # Search — iterative first, recursive fallback
+                loading_screen(stdscr)
+                adj_list        = createAdjList(segments)
+                candidate_paths = iterativeDFS(adj_list, origin, dest)
+
+                if not candidate_paths:
+                    candidate_paths = recursive_journeyGenerator(
+                        adj_list, origin, dest)
+
+                if not candidate_paths:
+                    error_screen(stdscr,
+                        f"No routes found between "
+                        f"{stops[origin]['name']} and "
+                        f"{stops[dest]['name']}. "
+                        "Try a different origin or destination.",
+                        title="NO ROUTES FOUND")
+                    break
+
+                top3 = evaluate_and_rank(
+                    candidate_paths, preference=pref, stops=stops)
+                results_screen(stdscr, top3,
+                               stops[origin]["name"],
+                               stops[dest]["name"],
+                               pref, stops)
+                break
 
         # ── 1: BROWSE STOPS ───────────────────────────────────────────────────
         elif choice == 1:
@@ -907,14 +911,9 @@ def run(stdscr):
 
         # ── 3: LOAD NETWORK FILE ──────────────────────────────────────────────
         elif choice == 3:
-            new_stops, new_segs = load_network_screen(stdscr)
-            if new_stops:
-                stops, segments = new_stops, new_segs
-            else:
-                error_screen(stdscr,
-                    "Could not load the network file. "
-                    "Check the file path and CSV format.",
-                    title="LOAD FAILED")
+            result = load_network_screen(stdscr)
+            if result[0] is not None:
+                stops, segments = result
 
         # ── 4: EXIT ───────────────────────────────────────────────────────────
         elif choice == 4:
