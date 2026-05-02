@@ -146,7 +146,7 @@ and load the new network without restarting.
 | Name | UID |
 |------|------|
 | Ali Soban | 3036670071 |
-| Ayele Biruk Sisay | DFS algorithm (iterative and recursive) |
+| Ayele Biruk Sisay | 3036478497 |
 | Chan Tsz Ching | 3036589662 |
 | George Adon Abraham | 3036476267 |
 | Khandelwal Prakhar | 3036475380 |
