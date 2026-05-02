@@ -62,9 +62,6 @@ COMP1110_G03/
 ├── main.py                  Entry point — loads network and launches TUI
 ├── tui.py                   Terminal User Interface (curses-based)
 │
-├── Team_1/
-│   └── Case_Studies.md      Case study analysis and evaluation
-│
 ├── Controller_IO/
 │   ├── io_handler.py        Loads stops.csv and segments.csv into memory
 │   ├── validator.py         Validates all user inputs before routing
