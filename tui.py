@@ -512,7 +512,7 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
 
         def stop_name(sid):
             if stops and sid in stops:
-                return f"{stops[sid]['name']} ({sid})"
+                return stops[sid]['name']
             return sid
 
         for journey in top3:
@@ -522,15 +522,17 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
             segs = journey["segments_count"]
 
             route_box_h = len(journey["segments"]) + 4
-            route_box_w = min(w - 6, 72)
+            route_box_w = min(w - 4, 90)
             route_box_x = max(3, (w - route_box_w) // 2)
 
             if row + route_box_h >= h - 3:
                 if row < h - 3:
                     safe_addstr(win, row, 3,
+
                                 "(resize terminal to see more routes)",
                                 attr_dim)
-                break
+                brea
+                k
 
             draw_box(win, row, route_box_x, route_box_h, route_box_w,
                      C_DIM, f" ROUTE #{rank} ")
