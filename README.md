@@ -27,6 +27,15 @@ frameworks. It runs entirely in the terminal.
 
 ---
 
+## To install curses library
+
+```bash
+pip install windows-curses
+```
+
+
+---
+
 ## How to Run
 
 From the project root directory:
