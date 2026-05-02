@@ -132,6 +132,16 @@ and load the new network without restarting.
 
 ---
 
+## Run the DFS test suite:
+
+From the DFS_Algorithm directory:
+
+```bash
+python test_dfs.py
+```
+
+
+
 ## Known Limitations
 
 - Fares are approximations based on real MTR ranges, not exact values
