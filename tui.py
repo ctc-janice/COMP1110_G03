@@ -531,8 +531,7 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
 
                                 "(resize terminal to see more routes)",
                                 attr_dim)
-                brea
-                k
+                break
 
             draw_box(win, row, route_box_x, route_box_h, route_box_w,
                      C_DIM, f" ROUTE #{rank} ")
