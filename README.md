@@ -36,8 +36,8 @@ python main.py
 ```
 
 The program will automatically load the default network from:
-- `Team_2/sample_data/stops.csv`
-- `Team_2/sample_data/segments.csv`
+- `Controller_IO/sample_data/stops.csv`
+- `Controller_IO/sample_data/segments.csv`
 
 ---
 
@@ -65,7 +65,7 @@ COMP1110_G03/
 ├── Team_1/
 │   └── Case_Studies.md      Case study analysis and evaluation
 │
-├── Team_2/
+├── Controller_IO/
 │   ├── io_handler.py        Loads stops.csv and segments.csv into memory
 │   ├── validator.py         Validates all user inputs before routing
 │   ├── scorer.py            Scores and ranks candidate routes (top 3)
@@ -73,8 +73,9 @@ COMP1110_G03/
 │       ├── stops.csv        Network stops (16 stops)
 │       └── segments.csv     Network connections (22 segments)
 │
-└── Team_3/
-    └── DFS_algorithm.py     Route search using Depth-First Search
+└── DFS_Algorithm/
+    ├── DFS_algorithm.py     Route search using Depth-First Search
+    └── test_dfs.py          Unit and integration tests for the DFS algorithm
 ```
 
 ---
@@ -152,4 +153,4 @@ and load the new network without restarting.
 | Chan Tsz Ching | 3036589662 |
 | George Adon Abraham | 3036476267 |
 | Khandelwal Prakhar | 3036475380 |
-| Nadeem Nabiha | File I/O, input validation, scoring and ranking |
+| Nadeem Nabiha | 3036668298 |
