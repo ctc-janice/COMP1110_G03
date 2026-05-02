@@ -33,15 +33,15 @@ import sys
 
 # ── Try importing project modules ──────────────────────────────────────────────
 try:
-    from Team_2.io_handler import load_network
-    from Team_2.validator  import validate_journey_request
-    from Team_2.scorer     import evaluate_and_rank
+    from Controller_IO.io_handler import load_network
+    from Controller_IO.validator  import validate_journey_request
+    from Controller_IO.scorer     import evaluate_and_rank
     IO_AVAILABLE = True
 except ImportError:
     IO_AVAILABLE = False
 
 try:
-    from Team_3.DFS_algorithm import createAdjList, recursive_journeyGenerator, iterativeDFS
+    from DFS_Algorithm.DFS_algorithm import createAdjList, recursive_journeyGenerator, iterativeDFS
     DFS_AVAILABLE = True
 except ImportError:
     DFS_AVAILABLE = False
@@ -538,6 +538,11 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
             header = (f"  Time: {dur:.0f} min   "
                       f"Cost: HK${cost:.2f}   "
                       f"Segments: {segs}")
+            
+            # Truncate header if too long
+            max_header_len = route_box_w - 4
+            if len(header) > max_header_len:
+                header = header[:max_header_len - 3] + "..."
             safe_addstr(win, row, route_box_x + 2, header, attr_sel)
             row += 1
             safe_addstr(win, row, route_box_x + 2,
@@ -549,9 +554,23 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
                 detail   = (f"[{seg['transport_type']}  "
                             f"{seg['duration']:.0f}min  "
                             f"HK${seg['cost']:.2f}]")
-                avail     = route_box_w - 6
-                from_to_w = avail - len(detail) - 1
-                seg_line  = f"  {from_to:<{max(1, from_to_w)}} {detail}"
+                
+                # Calculate available width for the from_to part
+                # Leave 2 spaces for padding and 1 space between from_to and detail
+                avail_width = route_box_w - 6  # subtract padding and borders
+                detail_len = len(detail) + 1  # +1 for the space
+                from_to_max = max(1, avail_width - detail_len)
+                
+                # Truncate from_to if too long
+                if len(from_to) > from_to_max:
+                    from_to = from_to[:from_to_max - 3] + "..."
+                
+                seg_line = f"  {from_to:<{from_to_max}} {detail}"
+                
+                # Final safety check - ensure entire line fits in box
+                if len(seg_line) > route_box_w - 2:
+                    seg_line = seg_line[:route_box_w - 5] + "..."
+                
                 if row < h - 3:
                     safe_addstr(win, row, route_box_x + 2, seg_line, attr_normal)
                 row += 1
@@ -565,8 +584,6 @@ def results_screen(win, top3, origin_name, dest_name, preference, stops):
 
         if win.getch() != curses.ERR:
             return
-
-
 # ── Error / warning screen ────────────────────────────────────────────────────
 
 def error_screen(win, message, title="ERROR"):
@@ -724,8 +741,8 @@ def load_network_screen(win):
     curses.curs_set(1)
     win.keypad(True)
 
-    default_stops = "Team_2/sample_data/stops.csv"
-    default_segs  = "Team_2/sample_data/segments.csv"
+    default_stops = "Controller_IO/sample_data/stops.csv"
+    default_segs  = "Controller_IO/sample_data/segments.csv"
     fields        = [list(default_stops), list(default_segs)]
     labels        = ["STOPS CSV PATH   ", "SEGMENTS CSV PATH"]
     active        = 0
@@ -811,8 +828,8 @@ def run(stdscr):
     stops, segments = {}, []
     if IO_AVAILABLE:
         s, seg, output = _safe_load_network(
-            "Team_2/sample_data/stops.csv",
-            "Team_2/sample_data/segments.csv"
+            "Controller_IO/sample_data/stops.csv",
+            "Controller_IO/sample_data/segments.csv"
         )
         if s is not None:
             stops, segments = s, seg

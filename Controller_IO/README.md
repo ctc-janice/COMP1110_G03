@@ -2,7 +2,7 @@ This README explains the three components File I/O + Input Validation + Scoring 
 
 Structure and Logic of files:
 
-Team_2/
+Controller_IO/
 │
 ├── io_handler.py ← Loads stops.csv and segments.csv into memory
 ├── validator.py ← Validates all user input before routing
@@ -197,23 +197,3 @@ python scorer.py
 This test verifies that **ranking order changes correctly** when the preference is swapped between `fastest`, `cheapest`, and `fewest_segments`. If #1 changes between modes, the scorer is working.
 
 ---
-
-## Integration: How the three components connect
-
-```
-stops.csv  ─┐
-             ├──► io_handler.py ──► all_stops{}, all_segments[]
-segments.csv ┘         │
-                        │
-                        ▼
-              validator.py ──► validated origin, dest, preference
-                        │
-                        ▼
-               router.py (teammate) ──► candidate_paths[]
-                        │
-                        ▼
-               scorer.py ──► top 3 ranked journeys
-                        │
-                        ▼
-               main.py (UI) ──► printed results
-```

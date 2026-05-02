@@ -10,8 +10,8 @@ On Windows only, install curses support first:
     pip install windows-curses
  
 Requires:
-    Team_2/sample_data/stops.csv
-    Team_2/sample_data/segments.csv
+    Controller_IO/sample_data/stops.csv
+    Controller_IO/sample_data/segments.csv
 '''
  
 from tui import main
